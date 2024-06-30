@@ -10,7 +10,7 @@ int main() {
     sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Bejeweled");
 
     sf::Texture bgTexture;
-    if (!bgTexture.loadFromFile("C:/Users/Noor Links/OneDrive/Desktop/Bejeweled/Backgrounds/backdrop12.png")) {
+    if (!bgTexture.loadFromFile("C:/Bejeweled/Backgrounds/backdrop12.png")) {
         cout << "Failed to load background texture" << endl;
         return -1;
     }
@@ -19,13 +19,13 @@ int main() {
 
     sf::Texture gemTextures[7];
     const string gemFiles[7] = {
-        "C:/Users/Noor Links/OneDrive/Desktop/Bejeweled/Gems/Amber.png",
-        "C:/Users/Noor Links/OneDrive/Desktop/Bejeweled/Gems/Amethyst.png",
-        "C:/Users/Noor Links/OneDrive/Desktop/Bejeweled/Gems/Diamond.png",
-        "C:/Users/Noor Links/OneDrive/Desktop/Bejeweled/Gems/Emerald.png",
-        "C:/Users/Noor Links/OneDrive/Desktop/Bejeweled/Gems/Ruby.png",
-        "C:/Users/Noor Links/OneDrive/Desktop/Bejeweled/Gems/Topaz.png",
-        "C:/Users/Noor Links/OneDrive/Desktop/Bejeweled/Gems/Sapphire.png"
+        "C:/Bejeweled/Gems/Amber.png",
+        "C:/Bejeweled/Gems/Amethyst.png",
+        "C:/Bejeweled/Gems/Diamond.png",
+        "C:/Bejeweled/Gems/Emerald.png",
+        "C:/Bejeweled/Gems/Ruby.png",
+        "C:/Bejeweled/Gems/Topaz.png",
+        "C:/Bejeweled/Gems/Sapphire.png"
     };
 
     for (int i = 0; i < 7; ++i) {
@@ -57,7 +57,7 @@ int main() {
 
 
     sf::Font font;
-    if (!font.loadFromFile("C:/Users/Noor Links/OneDrive/Desktop/Arsenal-Regular.ttf")) {
+    if (!font.loadFromFile("C:/Fonts/Arsenal-Regular.ttf ")) {
         cout << "Failed to load font" << endl;
         return -1;
     }
