@@ -1,7 +1,10 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <ctime>
+#include <cstring>
+#include <sstream>
 
 using namespace std;
 
@@ -10,6 +13,7 @@ const int STATE_MAIN_MENU = 0;
 const int STATE_PLAYING = 1;
 const int STATE_PAUSED = 2;
 const int STATE_GAME_OVER = 3;
+const int STATE_HIGH_SCORES = 4;
 
 const int WINDOW_HEIGHT = 760;
 const int WINDOW_WIDTH = 540;
@@ -23,7 +27,7 @@ sf::Texture bgTexture;
 sf::Sprite bgSprite;
 
 sf::Texture gemTextures[7];
-const string gemFiles[7] = {
+const char* gemFiles[7] = {
     "C:/Bejeweled/Gems/Amber.png",
     "C:/Bejeweled/Gems/Amethyst.png",
     "C:/Bejeweled/Gems/Diamond.png",
@@ -34,15 +38,19 @@ const string gemFiles[7] = {
 };
 
 sf::Font font;
-sf::Text titleText, scoreText, nameText, mainMenuText, pauseText, gameOverText;
+sf::Text titleText, scoreText, nameText, mainMenuText, pauseText, gameOverText, highScoresText;
 int gameState = STATE_MAIN_MENU;
 int score = 0;
-string playerName = "Noor";
+char playerName[100] = "Noor";
 
 // Variables to handle gem selection
 bool gemSelected = false;
 int selectedGemX = -1;
 int selectedGemY = -1;
+
+const int MAX_HIGH_SCORES = 10;
+int highScores[MAX_HIGH_SCORES] = {0};
+char highScoreNames[MAX_HIGH_SCORES][100] = {""};
 
 void loadTextures() {
     if (!bgTexture.loadFromFile("C:/Bejeweled/Backgrounds/backdrop12.png")) {
@@ -82,7 +90,7 @@ void initializeFontAndText() {
     scoreText.setPosition(scoreTextX, scoreTextY);
 
     nameText.setFont(font);
-    nameText.setString("Player: " + playerName);
+    nameText.setString("Player: " + string(playerName));
     nameText.setCharacterSize(30);
     nameText.setFillColor(sf::Color(90, 114, 59));
     float nameTextX = 30.0f;
@@ -90,26 +98,30 @@ void initializeFontAndText() {
     nameText.setPosition(nameTextX, nameTextY);
 
     mainMenuText.setFont(font);
-    mainMenuText.setString("Main Menu\n1. Start Game\n2. Quit");
+    mainMenuText.setString("Main Menu\n1. Start Game\n2. View High Scores\n3. Quit");
     mainMenuText.setCharacterSize(30);
     mainMenuText.setFillColor(sf::Color(90, 114, 59));
-    mainMenuText.setPosition(WINDOW_WIDTH / 4, WINDOW_HEIGHT / 4);
+    mainMenuText.setPosition(WINDOW_WIDTH / 4.0, WINDOW_HEIGHT / 4.0);
 
     pauseText.setFont(font);
     pauseText.setString("Game Paused\nPress P to Resume");
     pauseText.setCharacterSize(30);
     pauseText.setFillColor(sf::Color(90, 114, 59));
-    pauseText.setPosition(WINDOW_WIDTH / 4, WINDOW_HEIGHT / 4);
+    pauseText.setPosition(WINDOW_WIDTH / 4.0, WINDOW_HEIGHT / 4.0);
 
     gameOverText.setFont(font);
     gameOverText.setString("Game Over\nPress R to Restart");
     gameOverText.setCharacterSize(30);
     gameOverText.setFillColor(sf::Color(90, 114, 59));
-    gameOverText.setPosition(WINDOW_WIDTH / 4, WINDOW_HEIGHT / 4);
+    gameOverText.setPosition(WINDOW_WIDTH / 4.0, WINDOW_HEIGHT / 4.0);
+
+    highScoresText.setFont(font);
+    highScoresText.setCharacterSize(30);
+    highScoresText.setFillColor(sf::Color(90, 114, 59));
 }
 
 void initializeGameGrid() {
-    srand(static_cast<unsigned int>(time(0)));
+    srand(static_cast<unsigned int>(time(nullptr)));
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < cols; ++j) {
             do {
@@ -127,10 +139,48 @@ bool isMoveValid(int x1, int y1, int x2, int y2) {
     return (abs(x1 - x2) + abs(y1 - y2) == 1);
 }
 
-void swapGems(int x1, int y1, int x2, int y2) {
+bool hasMatch() {
+    for (int i = 0; i < rows; ++i) {
+        int chainLength = 1;
+        for (int j = 1; j < cols; ++j) {
+            if (gems[i][j] == gems[i][j - 1]) {
+                chainLength++;
+            } else {
+                if (chainLength >= 3) return true;
+                chainLength = 1;
+            }
+        }
+        if (chainLength >= 3) return true;
+    }
+
+    for (int j = 0; j < cols; ++j) {
+        int chainLength = 1;
+        for (int i = 1; i < rows; ++i) {
+            if (gems[i][j] == gems[i - 1][j]) {
+                chainLength++;
+            } else {
+                if (chainLength >= 3) return true;
+                chainLength = 1;
+            }
+        }
+        if (chainLength >= 3) return true;
+    }
+    return false;
+}
+
+bool swapGems(int x1, int y1, int x2, int y2) {
     int temp = gems[y1][x1];
     gems[y1][x1] = gems[y2][x2];
     gems[y2][x2] = temp;
+    if (hasMatch()) {
+        return true;
+    } else {
+        // Swap back if no match is found
+        temp = gems[y1][x1];
+        gems[y1][x1] = gems[y2][x2];
+        gems[y2][x2] = temp;
+        return false;
+    }
 }
 
 void checkMatches() {
@@ -145,7 +195,13 @@ void checkMatches() {
                     for (int k = 0; k < chainLength; ++k) {
                         isDestroyed[i][j - 1 - k] = true;
                     }
-                    score += 10 * chainLength;
+                    if (chainLength == 3) {
+                        score += 10;
+                    } else if (chainLength == 4) {
+                        score += 20;
+                    } else if (chainLength >= 5) {
+                        score += 50;
+                    }
                 }
                 chainLength = 1;
             }
@@ -154,7 +210,13 @@ void checkMatches() {
             for (int k = 0; k < chainLength; ++k) {
                 isDestroyed[i][cols - 1 - k] = true;
             }
-            score += 10 * chainLength;
+            if (chainLength == 3) {
+                score += 10;
+            } else if (chainLength == 4) {
+                score += 20;
+            } else if (chainLength >= 5) {
+                score += 50;
+            }
         }
     }
 
@@ -169,7 +231,13 @@ void checkMatches() {
                     for (int k = 0; k < chainLength; ++k) {
                         isDestroyed[i - 1 - k][j] = true;
                     }
-                    score += 10 * chainLength;
+                    if (chainLength == 3) {
+                        score += 10;
+                    } else if (chainLength == 4) {
+                        score += 20;
+                    } else if (chainLength >= 5) {
+                        score += 50;
+                    }
                 }
                 chainLength = 1;
             }
@@ -178,7 +246,13 @@ void checkMatches() {
             for (int k = 0; k < chainLength; ++k) {
                 isDestroyed[rows - 1 - k][j] = true;
             }
-            score += 10 * chainLength;
+            if (chainLength == 3) {
+                score += 10;
+            } else if (chainLength == 4) {
+                score += 20;
+            } else if (chainLength >= 5) {
+                score += 50;
+            }
         }
     }
 }
@@ -187,19 +261,38 @@ void dropGems() {
     for (int j = 0; j < cols; ++j) {
         for (int i = rows - 1; i >= 0; --i) {
             if (isDestroyed[i][j]) {
+                // Move gems down
                 for (int k = i; k > 0; --k) {
                     gems[k][j] = gems[k - 1][j];
+                    isDestroyed[k][j] = isDestroyed[k - 1][j];
                 }
+                // New gem at the top
                 gems[0][j] = rand() % 7;
-                isDestroyed[i][j] = false;
+                isDestroyed[0][j] = false;
             }
         }
     }
 }
 
 void updateGameGrid() {
-    checkMatches();
-    dropGems();
+    bool hasMatches;
+    do {
+        hasMatches = false;
+        checkMatches();
+
+        // Check if any gems are marked for destruction
+        for (int i = 0; i < rows; ++i) {
+            for (int j = 0; j < cols; ++j) {
+                if (isDestroyed[i][j]) {
+                    hasMatches = true;
+                }
+            }
+        }
+
+        if (hasMatches) {
+            dropGems();
+        }
+    } while (hasMatches);
 }
 
 void drawMainMenu(sf::RenderWindow &window) {
@@ -210,6 +303,7 @@ void drawPlaying(sf::RenderWindow &window) {
     window.draw(titleText);
     scoreText.setString("Score: " + to_string(score));
     window.draw(scoreText);
+    nameText.setString("Player: " + string(playerName));
     window.draw(nameText);
 
     float scaleFactor = 0.5f;
@@ -240,12 +334,65 @@ void drawGameOver(sf::RenderWindow &window) {
     window.draw(gameOverText);
 }
 
+void drawHighScores(sf::RenderWindow &window) {
+    stringstream ss;
+    ss << "High Scores:\n";
+    for (int i = 0; i < MAX_HIGH_SCORES; ++i) {
+        if (highScores[i] > 0) {
+            ss << highScoreNames[i] << ": " << highScores[i] << "\n";
+        }
+    }
+    highScoresText.setString(ss.str());
+    window.draw(highScoresText);
+}
+
+void loadHighScores() {
+    ifstream file("C:/Bejeweled/highscores.txt");
+    if (!file) {
+        cout << "Failed to load high scores" << endl;
+        return;
+    }
+    for (int i = 0; i < MAX_HIGH_SCORES; ++i) {
+        file >> highScores[i];
+        file.ignore(); // Ignore the space between score and name
+        file.getline(highScoreNames[i], 100);
+    }
+    file.close();
+}
+
+void saveHighScores() {
+    ofstream file("C:/Bejeweled/highscores.txt");
+    if (!file) {
+        cout << "Failed to save high scores" << endl;
+        return;
+    }
+    for (int i = 0; i < MAX_HIGH_SCORES; ++i) {
+        file << highScores[i] << " " << highScoreNames[i] << endl;
+    }
+    file.close();
+}
+
+void updateHighScores() {
+    int minScoreIndex = 0;
+    for (int i = 1; i < MAX_HIGH_SCORES; ++i) {
+        if (highScores[i] < highScores[minScoreIndex]) {
+            minScoreIndex = i;
+        }
+    }
+    if (score > highScores[minScoreIndex]) {
+        highScores[minScoreIndex] = score;
+        strncpy(highScoreNames[minScoreIndex], playerName, 100);
+        saveHighScores();
+    }
+}
+
 int main() {
     sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Bejeweled");
 
     loadTextures();
     initializeFontAndText();
     initializeGameGrid();
+    loadHighScores();
 
     while (window.isOpen()) {
         sf::Event event;
@@ -258,6 +405,8 @@ int main() {
                     if (event.key.code == sf::Keyboard::Num1) {
                         gameState = STATE_PLAYING;
                     } else if (event.key.code == sf::Keyboard::Num2) {
+                        gameState = STATE_HIGH_SCORES;
+                    } else if (event.key.code == sf::Keyboard::Num3) {
                         window.close();
                     }
                 }
@@ -282,8 +431,9 @@ int main() {
                             selectedGemY = row;
                         } else {
                             if (isMoveValid(selectedGemX, selectedGemY, col, row)) {
-                                swapGems(selectedGemX, selectedGemY, col, row);
-                                updateGameGrid();
+                                if (swapGems(selectedGemX, selectedGemY, col, row)) {
+                                    updateGameGrid();
+                                }
                             }
                             gemSelected = false;
                             selectedGemX = -1;
@@ -300,9 +450,16 @@ int main() {
             } else if (gameState == STATE_GAME_OVER) {
                 if (event.type == sf::Event::KeyPressed) {
                     if (event.key.code == sf::Keyboard::R) {
+                        updateHighScores();
                         score = 0;
                         initializeGameGrid();
                         gameState = STATE_PLAYING;
+                    }
+                }
+            } else if (gameState == STATE_HIGH_SCORES) {
+                if (event.type == sf::Event::KeyPressed) {
+                    if (event.key.code == sf::Keyboard::Escape) {
+                        gameState = STATE_MAIN_MENU;
                     }
                 }
             }
@@ -319,6 +476,8 @@ int main() {
             drawPaused(window);
         } else if (gameState == STATE_GAME_OVER) {
             drawGameOver(window);
+        } else if (gameState == STATE_HIGH_SCORES) {
+            drawHighScores(window);
         }
 
         window.display();
